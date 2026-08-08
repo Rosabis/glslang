@@ -1,0 +1,56 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE.txt'
+      - 'CODE_OF_CONDUCT.md'
+
+permissions: read-all
+
+jobs:
+  windows-release:
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update glslang sources
+        run: python update_glslang_sources.py
+
+      - name: Configure
+        run: |
+          cmake -S. -Bbuild -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/install"
+
+      - name: Build Release
+        run: cmake --build build --config Release --target install
+
+      - name: Zip Release
+        env:
+          ARCHIVE: glslang-master-windows-Release.zip
+        run: |
+          cd build/install
+          7z a ${{env.ARCHIVE}} `
+            bin/glslang.exe `
+            bin/glslangValidator.exe `
+            include/glslang/* `
+            lib/GenericCodeGen.lib `
+            lib/glslang.lib `
+            lib/glslang-default-resource-limits.lib `
+            lib/MachineIndependent.lib `
+            lib/OSDependent.lib `
+            lib/SPIRV.lib `
+            lib/SPIRV-Tools.lib `
+            lib/SPIRV-Tools-opt.lib
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: glslang-master-windows-Release
+          path: build/install/glslang-master-windows-Release.zip
